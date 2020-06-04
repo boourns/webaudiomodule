@@ -75,6 +75,7 @@ const processor = (processorId, paramsConfig) => {
 				instanceId,
 			} = options.processorOptions;
 			this.processorId = processorId;
+			this.instanceId = instanceId;
 			this.internalParamsMinValues = internalParamsMinValues;
 			this.paramsConfig = paramsConfig;
 			this.paramsMapping = paramsMapping;
@@ -85,9 +86,13 @@ const processor = (processorId, paramsConfig) => {
 			);
 			this.$lock = new Int32Array(this.buffer, 0, 1);
 			this.$paramsBuffer = new Float32Array(this.buffer, 4, this.internalParamsCount);
+
+			// eslint-disable-next-line no-undef
+			if (!globalThis.WebAudioPlugins) globalThis.WebAudioPlugins = {};
 			// eslint-disable-next-line no-undef
 			if (!globalThis.WebAudioPluginParams) globalThis.WebAudioPluginParams = {};
-			const { WebAudioPluginParams } = globalThis; // eslint-disable-line no-undef
+			const { WebAudioPlugins, WebAudioPluginParams } = globalThis; // eslint-disable-line no-undef
+			WebAudioPlugins[instanceId] = this; // so host can interact with the processor in audio thread
 			WebAudioPluginParams[instanceId] = {
 				internalParams,
 				lock: this.$lock,
@@ -159,11 +164,39 @@ const processor = (processorId, paramsConfig) => {
 				this.port.postMessage({ buffer: { lock: this.$lock, paramsBuffer: this.$paramsBuffer } });
 			}
 			this.exposed.frame = currentFrame; // eslint-disable-line no-undef
+
+			// if this node were repurposed to be the default AudioNode used by WebAudioPlugin,
+			// users of the SDK who wish to write custom AWN code would do so here
 			return true;
+		}
+
+		/**
+		 * @param {string} paramName
+		 * @param {number} paramValue
+		 * @param {number} [time]
+		 * @memberof ParamMgrProcessor
+		 */
+		setParam(paramName, paramValue, time) {
+			// handle the update here if supported by plugin
+			// ...
+			this.port.postMessage({ paramName, paramValue, time }); // update main thread
+		}
+
+		/**
+		 * @param {Object} event
+		 * @param {number} [time]
+		 * @memberof ParamMgrProcessor
+		 */
+		handleEvent(event, time) {
+			// handle the event here if supported by plugin
+			// ...
+			this.port.postMessage({ event, time }); // update main thread
 		}
 
 		destroy() {
 			this.destroyed = true;
+			// clean up
+			delete globalThis.WebAudioPlugins[this.instanceId];
 		}
 	}
 	registerProcessor(processorId, ParamMgrProcessor);

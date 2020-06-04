@@ -268,9 +268,13 @@ export default class WebAudioPlugin extends EventEmitter {
 
 	getParam(paramName) { return this.paramMgr.getParamValue(paramName); }
 
-	setParam(paramName, paramValue) {
+	setParam(paramName, paramValue/*, time*/) {
 		return this.setParams({ [paramName]: paramValue });
 	}
+
+	// handleEvent(event, time) {
+	// 	// ...
+	// }
 
 	getPatch() { return this.patch; }
 

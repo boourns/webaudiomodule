@@ -71,6 +71,7 @@ interface AudioWorkletGlobalScope {
     currentTime: number;
     sampleRate: number;
     AudioWorkletProcessor: AudioWorkletProcessor;
+    WebAudioPlugins: Record<string, AudioWorkletProcessor>;
     WebAudioPluginParams: Record<string, {
         internalParams: string[];
         lock: Int32Array;
