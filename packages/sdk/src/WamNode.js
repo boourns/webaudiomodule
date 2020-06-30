@@ -1,3 +1,4 @@
+/** @typedef { import('./WamTypes').WamSchedulingThread } WamSchedulingThread */
 /** @typedef { import('./WamTypes').WamLoader } WamLoader */
 /** @typedef { import('./WamTypes').WamParameterSet } WamParameterSet */
 /** @typedef { import('./WamTypes').WamEvent } WamEvent */
@@ -20,14 +21,19 @@ export default class WamNode extends AudioWorkletNode {
 
 	/**
 	 * @param {AudioContext} audioContext
+	 * @param {WamSchedulingThread} hostSchedulingThread
+	 * @param {WamSchedulingThread} processorSchedulingThread
 	 * @param {string} processorId
 	 * @param {string} instanceId
 	 * @param {WamLoader} loader
 	 * @param {AudioWorkletNodeOptions} options
 	 */
-	constructor(audioContext, processorId, instanceId, loader, options) {
+	constructor(audioContext, hostSchedulingThread, processorSchedulingThread,
+		processorId, instanceId, loader, options) {
 		const params = WamNode.generateWamParameters();
 		options.processorOptions = {
+			hostSchedulingThread,
+			processorSchedulingThread,
 			processorId,
 			instanceId,
 			params,
@@ -35,6 +41,10 @@ export default class WamNode extends AudioWorkletNode {
 		};
 		super(audioContext, instanceId, options);
 
+		/** @type {WamSchedulingThread} hostSchedulingThread */
+		this.hostSchedulingThread = hostSchedulingThread;
+		/** @type {WamSchedulingThread} processorSchedulingThread */
+		this.processorSchedulingThread = processorSchedulingThread;
 		/** @type {string} processorId */
 		this.processorId = processorId;
 		/** @type {string} instanceId */

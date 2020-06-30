@@ -1,3 +1,13 @@
+export type WamSchedulingThread = "MainThread" | "AudioThread";
+
+// HOST
+
+export type HostDescriptor = {
+    name: string;
+    vendor: string;
+    schedulingThread: WamSchedulingThread;
+}
+
 // LOADER
 
 export type WamDescriptor = {
@@ -6,17 +16,19 @@ export type WamDescriptor = {
     entry?: string;
     gui: string;
     url?: string;
+    schedulingThread: WamSchedulingThread;
 }
 
 export class WamLoader {
     static isWebAudioPlugin: boolean;
-    static createInstance(audioContext: AudioContext, pluginOptions?: any): Promise<WamLoader>;
+    static createInstance(audioContext: AudioContext, 
+        hostDescriptor: HostDescriptor, pluginOptions?: any): Promise<WamLoader>;
 
     static descriptor: WamDescriptor;
 
     static guiModuleUrl: string;
 
-    constructor(audioContext: AudioContext);
+    constructor(audioContext: AudioContext, hostDescriptor: HostDescriptor);
     audioContext: AudioContext;
     instanceId: string;
     _audioNode: AudioNode;
@@ -49,8 +61,14 @@ export class WamLoader {
 export class WamNode extends AudioWorkletNode {
     static generateWamParameters(): WamParameterSet;
 
-    constructor(audioContext: AudioContext, processorId: string, instanceId: string, loader: WamLoader, options: AudioWorkletNodeOptions);
+    constructor(audioContext: AudioContext, 
+        hostSchedulingThread: WamSchedulingThread, 
+        processorSchedulingThread: WamSchedulingThread,
+        processorId: string, instanceId: string, 
+        loader: WamLoader, options: AudioWorkletNodeOptions);
     
+    hostSchedulingThread: WamSchedulingThread;
+    processorSchedulingThread: WamSchedulingThread;
     processorId: string;
     instanceId: string;
     loader: WamLoader;
@@ -72,6 +90,8 @@ export class WamNode extends AudioWorkletNode {
 export class WamProcessor {
     constructor(options: AudioWorkletNodeOptions);
 
+    hostSchedulingThread: WamSchedulingThread;
+    processorSchedulingThread: WamSchedulingThread;
     processorId: string;
     instanceId: string;
     _params: WamParameterSet;

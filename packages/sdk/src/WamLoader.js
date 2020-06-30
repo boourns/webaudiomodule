@@ -1,4 +1,6 @@
+/** @typedef { import('./WamTypes').HostDescriptor } HostDescriptor */
 /** @typedef { import('./WamTypes').WamDescriptor } WamDescriptor */
+/** @typedef { import('./WamTypes').WamSchedulingThread } WamSchedulingThread */
 
 /* eslint-disable no-underscore-dangle */
 /* eslint-disable no-unused-vars */
@@ -12,11 +14,12 @@ export default class WamLoader {
 
 	/**
 	 * @param {AudioContext} audioContext
+	 * @param {HostDescriptor} hostDescriptor
 	 * @param {any} [pluginOptions]
 	 * @returns {Promise<WamLoader>}
 	*/
-	static createInstance(audioContext, pluginOptions = {}) {
-		return new this(audioContext).initialize(pluginOptions);
+	static createInstance(audioContext, hostDescriptor, pluginOptions = {}) {
+		return new this(audioContext, hostDescriptor).initialize(pluginOptions);
 	}
 
 	/** @type {WamDescriptor} */
@@ -26,14 +29,19 @@ export default class WamLoader {
 		entry: undefined,
 		gui: 'none',
 		url: undefined,
+		schedulingThread: 'MainThread',
 	}
 
 	/** @type {string} */
 	static guiModuleUrl = undefined;
 
-	/** @param {AudioContext} audioContext */
-	constructor(audioContext) {
+	/**
+	 *  @param {AudioContext} audioContext
+	 *  @param {HostDescriptor} hostDescriptor
+	*/
+	constructor(audioContext, hostDescriptor) {
 		this.audioContext = audioContext;
+		this.hostDescriptor = hostDescriptor; // so plugin & GUI know what environment they are in
 		this.instanceId = this.pluginId + performance.now();
 		this._audioNode = undefined;
 		this.initialized = false;

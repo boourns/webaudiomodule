@@ -1,3 +1,4 @@
+/** @typedef { import('./WamTypes').WamSchedulingThread } WamSchedulingThread */
 /** @typedef { import('./WamTypes').WamParameterSet } WamParameterSet */
 /** @typedef { import('./WamTypes').WamEvent } WamEvent */
 
@@ -17,11 +18,17 @@ export default class WamProcessor extends AudioWorkletProcessor {
 	constructor(options) {
 		super(options);
 		const {
+			hostSchedulingThread,
+			processorSchedulingThread,
 			processorId,
 			instanceId,
 			params,
 		} = options.processorOptions;
 
+		/** @type {WamSchedulingThread} hostSchedulingThread */
+		this.hostSchedulingThread = hostSchedulingThread;
+		/** @type {WamSchedulingThread} processorSchedulingThread */
+		this.processorSchedulingThread = processorSchedulingThread;
 		/** @type {string} processorId */
 		this.processorId = processorId;
 		/** @type {string} instanceId */
