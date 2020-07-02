@@ -137,8 +137,6 @@ export class WamParameter {
     _choices: string[];
     _units: string;
 
-    set value(arg: number);
-    get value(): number;
     get id(): string;
     get label(): string;
     get type(): WamParameterType;
@@ -149,6 +147,8 @@ export class WamParameter {
     get exponent(): number;
     get choices(): string[];
     get units(): string;
+    set value(arg: number);
+    get value(): number;
     set normalizedValue(arg: number);
     get normalizedValue(): number;
     normalize(value: number): number;
