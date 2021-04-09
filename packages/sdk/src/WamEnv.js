@@ -15,6 +15,18 @@ const processor = () => {
 			this._graph = new Map();
 			/** @type {Record<string, WamProcessor>} */
 			this._processors = {};
+
+			this._transportEvents = [
+				{
+					playing: false,
+					beatsPerBar: 4,
+					initialBarPosition: 0,
+					start: {
+						timestamp: 0,
+						bpm: 120
+					}
+				}
+			]
 		}
 
 		get graph() {
@@ -96,11 +108,116 @@ const processor = () => {
 		}
 
 		/**
+		 * @param {boolean} playing
+		 * @param {number} bpm
+		 * @param {number} beatsPerBar
+		 * @param {number} [initialBarPosition]
+		 * @param {number} [timestamp]
+		 */
+		setTransportAtTime(playing, bpm, beatsPerBar, initialBarPosition, timestamp) {
+			if (timestamp === undefined) {
+				timestamp = currentTime
+			}
+
+			if (initialBarPosition === undefined) {
+				initialBarPosition = this.getBarPosition(timestamp)
+			}
+
+			this._transportEvents.push({
+				playing,
+				initialBarPosition,
+    			beatsPerBar,
+				start: {
+					timestamp,
+					bpm
+				}
+			})
+
+			// 
+			this._transportEvents = this._transportEvents.sort((a, b) => a.start.timestamp - b.start.timestamp)
+
+			// remove all but the most recent transport event that occurred in the past
+			while (this._transportEvents.length > 0 && this._transportEvents[0].start.timestamp <= currentTime) {
+				var transport = this._transportEvents.shift()
+			}
+
+			this._transportEvents.unshift(transport)
+		}
+		
+		/**
+		 * 
+		 * @param {number} startBpm 
+		 * @param {number} startTime 
+		 * @param {number} endBpm 
+		 * @param {number} endTime 
+		 * @param {number} beatsPerBar
+		 * @param {number} [initialBarPosition]
+		 */
+		automateTempo(startBpm, startTime, endBpm, endTime, beatsPerBar, initialBarPosition) {
+			if (initialBarPosition === undefined) {
+				initialBarPosition = this.getBarPosition(startTime)
+			}
+
+			this._transportEvents.push({
+				playing: true,
+				initialBarPosition,
+				beatsPerBar,
+				start: {
+					timestamp: startTime,
+					bpm: startBpm
+				},
+				end: {
+					timestamp: endTime,
+					bpm: endBpm
+				}
+			})
+
+			this._transportEvents = this._transportEvents.sort((a, b) => a.start.timestamp - b.start.timestamp)
+		}
+		
+		/**
 		 * @param {number} from
 		 * @param {number} to
 		 */
 		// eslint-disable-next-line
-		getTimeInfo(from, to) { throw new Error('Not Implemented.'); return null; }
+		getTransportEvents(from, to) { 
+			var result = []
+			this._transportEvents.forEach(ev => {
+				// at least partial overlap with the requested time frame
+				if (ev.start.timestamp <= to && (!ev.end || ev.end.timestamp > from)) {
+					// only include the most recent event with a timestamp starting before this time period
+					if (ev.start.timestamp <= from && result.length > 0) {
+						result[0] = ev
+					} else {
+						result.push(ev)
+					}
+				}
+			})
+
+			return result
+		}
+
+		/**
+		 * @param {number} timestamp
+		 */
+		getBarPosition(timestamp) {
+			let transport = this.getTransportEvents(timestamp, timestamp)[0]
+
+			let time = timestamp - transport.start.timestamp
+
+			// based on transport segment, where are we
+			if (transport.end) {
+				// change of rate of X beats per second squared
+				var acceleration = ((transport.end.bpm - transport.start.bpm)/60.0) / (transport.end.timestamp - transport.start.timestamp)
+				var beatPosition = (0.5 * acceleration * time * time) + ((transport.start.bpm/60.0) * time) + (transport.initialBarPosition * transport.beatsPerBar)
+			} else {
+				// we are at a fixed tempo
+				var beatPosition = (transport.initialBarPosition * transport.beatsPerBar) + ((transport.start.bpm/60.0) * time)
+			}
+
+			return beatPosition / transport.beatsPerBar
+		}
+		
 	}
 
 	/** @type {AudioWorkletGlobalScope} */
