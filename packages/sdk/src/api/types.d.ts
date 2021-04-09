@@ -237,6 +237,19 @@ export type WamSysexEvent = WamEventBase<'sysex', WamSysexData>;
 export type WamMpeEvent = WamEventBase<'mpe', WamMidiData>;
 export type WamOscEvent = WamEventBase<'osc', string>;
 
+export type WamTempoPosition = {
+    timestamp: number
+    bpm: number
+}
+
+export type WamTransportEvent = {
+    playing: boolean
+    beatsPerBar: number
+    initialBarPosition: number
+    start: WamTempoPosition
+    end?: WamTempoPosition
+}
+
 export interface AudioWorkletProcessor {
     port: MessagePort;
     process(inputs: Float32Array[][], outputs: Float32Array[][], parameters: Record<string, Float32Array>): boolean;
@@ -253,7 +266,11 @@ export interface WamEnv {
     connectEvents(from: WamProcessor, to: WamProcessor, output?: number): void;
     disconnectEvents(from: WamProcessor, to?: WamProcessor, output?: number): void;
     destroy(wam: WamProcessor): void;
-    getTimeInfo(from?: number, to?: number): any;
+
+    setTransportAtTime(playing: boolean, bpm: number, beatsPerBar?: number, barPosition?: number, time?: number): void;
+    automateTempo(startBpm: number, startTime: number, endBpm: number, endTime: number, beatsPerBar: number, initialBarPosition?: number): void
+    getTransportEvents(from?: number, to?: number): WamTransportEvent[];
+    getBarPosition(timestamp: number): number;
 }
 
 export interface AudioWorkletGlobalScope {
