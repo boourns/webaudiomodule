@@ -88,6 +88,8 @@ export interface ParamMgrCallToProcessor extends UnPromisifiedFunctionMap<Pick<W
     disconnectEvents(wamInstanceId: string, from: number): void;
 	setParamsMapping(mapping: ParametersMapping): void;
 	getBuffer(): { lock: Int32Array, paramsBuffer: Float32Array };
+    setTransportAtTime(playing: boolean, bpm: number, beatsPerBar: number, initialBarPosition?: number, timestamp?: number): void;
+
 }
 export interface ParamMgrCallFromProcessor {
 	setBuffer(buffer: { lock: Int32Array, paramsBuffer: Float32Array }): void;
