@@ -7,7 +7,8 @@
  * @implements {IWamEnv}
  */
 export default class WamEnv {
-	get graph() { throw new Error('Not Implemented.'); return null; }
+
+	get eventGraph() { throw new Error('Not Implemented.'); return null; }
 
 	get processors() { throw new Error('Not Implemented.'); return null; }
 
@@ -19,5 +20,4 @@ export default class WamEnv {
 
 	destroy(wam) { throw new Error('Not Implemented.'); return null; }
 
-	getTimeInfo(from, to) { throw new Error('Not Implemented.'); return null; }
 }

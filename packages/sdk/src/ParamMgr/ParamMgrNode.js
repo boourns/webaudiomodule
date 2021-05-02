@@ -183,6 +183,13 @@ export default class ParamMgrNode extends AudioWorkletNode {
 		this.call('scheduleEvents', ...events);
 	}
 
+	/**
+	 * @param {WamEvent[]} events
+	 */
+	emitEvents(...events) {
+		this.call('emitEvents', ...events);
+	}
+
 	clearEvents() {
 		this.call('clearEvents');
 	}

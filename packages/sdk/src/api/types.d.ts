@@ -202,7 +202,7 @@ export type WamParameterDataMap = Record<string, WamParameterData>;
 
 // EVENTS
 
-export type WamListenerType = 'wam-event' | 'wam-automation' | 'wam-midi' | 'wam-sysex' | 'wam-mpe' | 'wam-osc';
+export type WamListenerType = 'wam-event' | 'wam-automation' | 'wam-midi' | 'wam-sysex' | 'wam-mpe' | 'wam-osc' | 'wam-transport';
 
 export type WamEventType = keyof WamEventMap;
 
@@ -220,6 +220,14 @@ export interface WamSysexData {
     bytes: number[];
 }
 
+export interface WamTransportData {
+    currentBar: number; // bar number
+    currentBarStarted: number; // timestamp in seconds (WebAudio clock)
+    tempo: number;
+    timeSigNumerator: number;
+    timeSigDenominator: number;
+}
+
 export type WamEventCallback<E extends WamEventType = WamEventType> = (event: WamEventMap[E]) => any;
 
 export interface WamEventMap {
@@ -228,6 +236,7 @@ export interface WamEventMap {
     "sysex": WamSysexEvent;
     "mpe": WamMpeEvent;
     "osc": WamOscEvent;
+    "transport": WamTransportEvent;
 }
 
 export type WamEvent = WamAutomationEvent | WamMidiEvent | WamSysexEvent | WamMpeEvent | WamOscEvent;
@@ -236,13 +245,14 @@ export type WamMidiEvent = WamEventBase<'midi', WamMidiData>;
 export type WamSysexEvent = WamEventBase<'sysex', WamSysexData>;
 export type WamMpeEvent = WamEventBase<'mpe', WamMidiData>;
 export type WamOscEvent = WamEventBase<'osc', string>;
+export type WamTransportEvent = WamEventBase<'transport', WamTransportData>;
 
 export type WamTempoPosition = {
     timestamp: number
     bpm: number
 }
 
-export type WamTransportEvent = {
+export type WamTransportEvent2 = {
     playing: boolean
     beatsPerBar: number
     initialBarPosition: number
@@ -260,7 +270,7 @@ export const AudioWorkletProcessor: {
 };
 
 export interface WamEnv {
-    readonly graph: Map<WamProcessor, Set<WamProcessor>[]>;
+    readonly eventGraph: Map<WamProcessor, Set<WamProcessor>[]>;
     readonly processors: Record<string, WamProcessor>;
     create(wam: WamProcessor): void;
     connectEvents(from: WamProcessor, to: WamProcessor, output?: number): void;
@@ -269,7 +279,7 @@ export interface WamEnv {
 
     setTransportAtTime(playing: boolean, bpm: number, beatsPerBar?: number, barPosition?: number, time?: number): void;
     automateTempo(startBpm: number, startTime: number, endBpm: number, endTime: number, beatsPerBar: number, initialBarPosition?: number): void
-    getTransportEvents(from?: number, to?: number): WamTransportEvent[];
+    getTransportEvents(from?: number, to?: number): WamTransportEvent2[];
     getBarPosition(timestamp: number): number;
 }
 
@@ -279,7 +289,5 @@ export interface AudioWorkletGlobalScope {
     currentTime: number;
     sampleRate: number;
     AudioWorkletProcessor: typeof AudioWorkletProcessor;
-	/** @deprecated */
-    WamProcessors: Record<string, WamProcessor>;
     webAudioModules: WamEnv;
 }
