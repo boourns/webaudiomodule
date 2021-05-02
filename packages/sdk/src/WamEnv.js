@@ -1,4 +1,4 @@
-/** @typedef {import('./api/types').WamProcessor} WamProcessor */
+/** @typedef {import('./api/types').WamProcessor} IWamProcessor */
 /** @typedef {import('./api/types').WamEnv} IWamEnv */
 /** @typedef {import('./api/types').AudioWorkletGlobalScope} AudioWorkletGlobalScope */
 /* eslint-disable no-underscore-dangle */
@@ -11,8 +11,6 @@ const processor = () => {
 	 */
 	class WamEnv {
 		constructor() {
-			/** @type {Map<WamProcessor, Set<WamProcessor>[]>} */
-
 			this._transportEvents = [
 				{
 					playing: false,
@@ -25,8 +23,9 @@ const processor = () => {
 				}
 			]
 		
+			/** @type {Map<IWamProcessor, Set<IWamProcessor>[]>} */
 			this._eventGraph = new Map();
-			/** @type {Record<string, WamProcessor>} */
+			/** @type {Record<string, IWamProcessor>} */
 			this._processors = {};
 		}
 
@@ -39,7 +38,7 @@ const processor = () => {
 		}
 
 		/**
-		 * @param {WamProcessor} wam
+		 * @param {IWamProcessor} wam
 		 */
 		create(wam) {
 			this._processors[wam.instanceId] = wam;
@@ -47,12 +46,12 @@ const processor = () => {
 		}
 
 		/**
-		 * @param {WamProcessor} from
-		 * @param {WamProcessor} to
+		 * @param {IWamProcessor} from
+		 * @param {IWamProcessor} to
 		 * @param {number} [output]
 		 */
 		connectEvents(from, to, output = 0) {
-			/** @type {Set<WamProcessor>[]} */
+			/** @type {Set<IWamProcessor>[]} */
 			let outputMap;
 			if (this._eventGraph.has(from)) {
 				outputMap = this._eventGraph.get(from);
@@ -71,8 +70,8 @@ const processor = () => {
 		}
 
 		/**
-		 * @param {WamProcessor} from
-		 * @param {WamProcessor} [to]
+		 * @param {IWamProcessor} from
+		 * @param {IWamProcessor} [to]
 		 * @param {number} [output]
 		 */
 		disconnectEvents(from, to, output) {
@@ -96,7 +95,7 @@ const processor = () => {
 		}
 
 		/**
-		 * @param {WamProcessor} wam
+		 * @param {IWamProcessor} wam
 		 */
 		destroy(wam) {
 			if (this.eventGraph.has(wam)) this.eventGraph.delete(wam);
