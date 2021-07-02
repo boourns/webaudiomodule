@@ -25,6 +25,8 @@
   "scripts": {
     "clean": "del-cli esm",
     "build": "rollup -c",
-    "test": "jest"
-  }
+    "test": "jest",
+    "prepare": "rollup -c"
+  },
+
 }
