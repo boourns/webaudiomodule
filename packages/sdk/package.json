@@ -27,6 +27,5 @@
     "build": "rollup -c",
     "test": "jest",
     "prepare": "rollup -c"
-  },
-
+  }
 }
