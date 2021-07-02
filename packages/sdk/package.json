@@ -26,6 +26,6 @@
     "clean": "del-cli esm",
     "build": "rollup -c",
     "test": "jest",
-    "prepare": "rollup -c"
+    "prepack": "yarn build"
   }
 }
