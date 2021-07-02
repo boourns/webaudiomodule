@@ -88,66 +88,66 @@ export default class WamParameterInfo {
 
 		/**
 		 * The parameter's unique identifier.
-		 * @readonly @type {string}
+		 * @readonly @property {string} id
 		 */
 		this.id = id;
 
 		/**
 		 * The parameter's human-readable name.
-		 * @readonly @type {string}
+		 * @readonly @property {string} label
 		 */
 		this.label = label;
 
 		/**
 		 * The parameter's data type.
-		 * @readonly @type {WamParameterType}
+		 * @readonly @property {WamParameterType} type
 		 */
 		this.type = type;
 
 		/**
 		 * The parameter's default value. Must be
 		 * within range `[minValue, maxValue]`.
-		 * @readonly @type {number}
+		 * @readonly @property {number} defaultValue
 		 */
 		this.defaultValue = defaultValue;
 
 		/**
 		 * The minimum valid value of the parameter's range.
-		 * @readonly @type {number}
+		 * @readonly @property {number} minValue
 		 */
 		this.minValue = minValue;
 
 		/**
 		 * The maximum valid value of the parameter's range.
-		 * @readonly @type {number}
+		 * @readonly @property {number} maxValue
 		 */
 		this.maxValue = maxValue;
 
 		/**
 		 * The distance between adjacent valid integer
 		 * values, if applicable.
-		 * @readonly @type {number}
+		 * @readonly @property {number} discreteStep
 		 */
 		this.discreteStep = discreteStep;
 
 		/**
 		 * The nonlinear (exponential) skew of the parameter's
 		 * range, if applicable.
-		 *  @readonly @type {number}
+		 *  @readonly @property {number} exponent
 		 */
 		this.exponent = exponent;
 
 		/**
 		 * A list of human-readable choices corresponding to each
 		 * valid integer value in the parameter's range, if applicable.
-		 * @readonly @type {string[]}
+		 * @readonly @property {string[]} choices
 		 */
 		this.choices = choices;
 
 		/**
 		 * A human-readable string representing the units of the
 		 * parameter's range, if applicable.
-		 * @readonly @type {string}
+		 * @readonly @property {string} units
 		 */
 		this.units = units;
 	}

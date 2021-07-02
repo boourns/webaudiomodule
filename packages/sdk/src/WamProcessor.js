@@ -1,5 +1,4 @@
 /** @typedef {import('./api/types').WamProcessor} IWamProcessor */
-/** @typedef {import('./api/types').WamParameter} WamParameter */
 /** @typedef {import('./api/types').WamParameterInfoMap} WamParameterInfoMap */
 /** @typedef {import('./api/types').WamParameterInfo} WamParameterInfo */
 /** @typedef {import('./api/types').WamParameterDataMap} WamParameterDataMap */
@@ -8,10 +7,9 @@
 /** @typedef {import('./api/types').WamEvent} WamEvent */
 /** @typedef {import('./api/types').WamTransportData} WamTransportData */
 /** @typedef {import('./api/types').WamMidiData} WamMidiData */
-/** @typedef {import('./api/types').WamBinaryData} WamBinaryData */
-/** @typedef {import('./types').AudioWorkletGlobalScope} AudioWorkletGlobalScope */
-/** @typedef {import('./types').WamParameterInterpolator} WamParameterInterpolator */
-/** @typedef {import('./types').WamEventRingBuffer} WamEventRingBuffer */
+/** @typedef {import('./api/types').WamSysexData} WamSysexData */
+/** @typedef {import('./api/types').AudioWorkletGlobalScope} AudioWorkletGlobalScope */
+/** @typedef {import('./WamParameterInterpolator')} WamParameterInterpolator */
 
 /* eslint-disable no-undef */
 /* eslint-disable no-empty-function */
@@ -39,18 +37,23 @@
  */
 
 /**
- * @typedef {{[id: string]: WamParameterInterpolator}} WamParameterInterpolatorMap
+ * @typedef {Object} WamParameterInterpolatorMap
+ * @property {string} id
+ * @property {WamParameterInterpolator} interpolator
  */
 
 /** @type {AudioWorkletGlobalScope & globalThis} */
 // @ts-ignore
 const {
 	AudioWorkletProcessor,
+	// @ts-ignore
 	WamParameterInterpolator,
-	WamParameter,
-	WamEventRingBuffer,
+	// @ts-ignore
+	WamParameterNoSab,
+	// @ts-ignore
+	WamParameterSab,
+	// @ts-ignore
 	webAudioModules,
-	RingBuffer,
 } = globalThis;
 
 /**
@@ -88,43 +91,70 @@ export default class WamProcessor extends AudioWorkletProcessor {
 		if (!moduleId) throw Error('must provide moduleId argument in processorOptions!');
 		if (!instanceId) throw Error('must provide instanceId argument in processorOptions!');
 
-		/** @type {string} */
+		/** @property {string} moduleId */
 		this.moduleId = moduleId;
-		/** @type {string} */
+		/** @property {string} instanceId */
 		this.instanceId = instanceId;
-		/** @private @type {WamParameterInfoMap} */
+		/** @property {WamParameterInfoMap} _parameterInfo */
 		// @ts-ignore
 		this._parameterInfo = this.constructor.generateWamParameterInfo();
-		/** @private @type {WamParameterMap} */
+		/** @property {WamParameterMap} _parameterState */
 		this._parameterState = {};
-		/** @private @type {number} */
+		/** @property {number} _samplesPerQuantum */
 		this._samplesPerQuantum = 128;
 
-		/** @private @type {WamParameterInterpolatorMap} */
+		/** @property {WamParameterInterpolatorMap} _parameterInterpolators */
 		this._parameterInterpolators = {};
 		Object.keys(this._parameterInfo).forEach((parameterId) => {
 			const info = this._parameterInfo[parameterId];
-			this._parameterState[parameterId] = new WamParameter(this._parameterInfo[parameterId]);
 			this._parameterInterpolators[parameterId] = new WamParameterInterpolator(info, 256);
 		});
 
-		/** @private @type {PendingWamEvent[]} */
+		/** @property {boolean} _useSab */
+		this._useSab = !!useSab;
+		if (this._useSab) {
+			const numParameters = Object.keys(this._parameterInfo).length;
+			const byteLength = Float32Array.BYTES_PER_ELEMENT * numParameters;
+			/** @private @property {SharedArrayBuffer} _parameterBuffer */
+			this._parameterBuffer = new SharedArrayBuffer(byteLength);
+			/** @private @property {Float32Array} _parameterValues */
+			this._parameterValues = new Float32Array(this._parameterBuffer);
+			/** @private @property {[paramterId: string]: number} */
+			this._parameterIndices = {};
+			Object.keys(this._parameterInfo).forEach((parameterId, index) => {
+				const info = this._parameterInfo[parameterId];
+				this._parameterIndices[parameterId] = index;
+				this._parameterState[parameterId] = new WamParameterSab(info, this._parameterValues, index);
+			});
+			// pass the SAB to main thread
+			this.port.postMessage({
+				useSab: true,
+				parameterIndices: this._parameterIndices,
+				parameterBuffer: this._parameterBuffer,
+			});
+		} else {
+			Object.keys(this._parameterInfo).forEach((parameterId) => {
+				this._parameterState[parameterId] = new WamParameterNoSab(this._parameterInfo[parameterId]);
+			});
+		}
+
+		/*
+		* TODO
+		* Maybe this should all be refactored at some point to use a ringbuffer backed
+		* by SAB. Relying heavily on MessagePort for now, but it would be possible to
+		* handle automation / midi events etc without it.
+		*/
+		/** @property {PendingWamEvent[]} _eventQueue */
 		this._eventQueue = [];
 
-		/** @private @type {number} */
+		/** @property {number} _compensationDelay */
 		this._compensationDelay = 0;
-		/** @private @type {boolean} */
+		/** @property {boolean} _destroyed */
 		this._destroyed = false;
 
 		webAudioModules.create(this);
 
 		this.port.onmessage = this._onMessage.bind(this);
-
-		/** @private @type {boolean} */
-		this._useSab = !!useSab && !!globalThis.SharedArrayBuffer;
-		/** @private @type {boolean} */
-		this._sabReady = false;
-		if (this._useSab) this._configureSab();
 	}
 
 	/**
@@ -145,6 +175,7 @@ export default class WamProcessor extends AudioWorkletProcessor {
 			this._eventQueue.push({ id: 0, event: events[i] });
 			i++;
 		}
+		this._eventQueue = this._eventQueue.sort((a, b) => a.event.time - b.event.time)
 	}
 
 	get downstream() {
@@ -172,26 +203,13 @@ export default class WamProcessor extends AudioWorkletProcessor {
 		this._eventQueue = [];
 	}
 
-	_configureSab() {
-		const eventCapacity = 2 ** 10;
-		const parameterIds = Object.keys(this._parameterInfo);
-		if (this._sabReady) {
-			// if parameter set changes after initialization
-			this._eventWriter.setParameterIds(parameterIds);
-			this._eventReader.setParameterIds(parameterIds);
-		}
-		this.port.postMessage({ sab: { eventCapacity, parameterIds } });
-	}
-
 	/**
 	 * Messages from main thread appear here.
 	 * @param {MessageEvent} message
 	 */
-	async _onMessage(message) {
+	_onMessage(message) {
 		if (message.data.request) {
-			const {
-				id, request, content,
-			} = message.data;
+			const { id, request, content } = message.data;
 			const response = { id, response: request };
 			const requestComponents = request.split('/');
 			const verb = requestComponents[0];
@@ -214,7 +232,7 @@ export default class WamProcessor extends AudioWorkletProcessor {
 					let { normalized, parameterIds } = content;
 					response.content = this._getParameterValues(normalized, parameterIds);
 				} else if (noun === 'state') {
-					response.content = this._getState();
+					response.content = { parameterValues: this._getParameterValues(false) };
 					// ...additional state?
 				} else if (noun === 'compensationDelay') {
 					response.content = this.getCompensationDelay();
@@ -226,7 +244,7 @@ export default class WamProcessor extends AudioWorkletProcessor {
 					delete response.content;
 				} else if (noun === 'state') {
 					const { state } = content;
-					this._setState(state);
+					if (state.parameterValues) this._setParameterValues(state.parameterValues, false);
 					// ...additional state?
 					delete response.content;
 				}
@@ -246,34 +264,11 @@ export default class WamProcessor extends AudioWorkletProcessor {
 				if (noun === 'events') {
 					const { wamInstanceId, output } = content;
 					this.connectEvents(wamInstanceId, output);
-					delete response.content;
 				}
 			} else if (verb === 'disconnect') {
 				if (noun === 'events') {
 					const { wamInstanceId, output } = content;
 					this.disconnectEvents(wamInstanceId, output);
-					delete response.content;
-				}
-			} else if (verb === 'initialize') {
-				if (noun === 'sab') {
-					const { mainToAudioSab, audioToMainSab } = content;
-
-					/** @private @type {SharedArrayBuffer} */
-					this._audioToMainSab = audioToMainSab;
-
-					/** @private @type {SharedArrayBuffer} */
-					this._mainToAudioSab = mainToAudioSab;
-
-					const parameterIds = Object.keys(this._parameterInfo);
-					/** @private @type {WamEventRingBuffer} */
-					this._eventWriter = new WamEventRingBuffer(RingBuffer, this._audioToMainSab,
-						parameterIds);
-					/** @private @type {WamEventRingBuffer} */
-					this._eventReader = new WamEventRingBuffer(RingBuffer, this._mainToAudioSab,
-						parameterIds);
-
-					this._sabReady = true;
-					delete response.content;
 				}
 			}
 			this.port.postMessage(response);
@@ -281,6 +276,7 @@ export default class WamProcessor extends AudioWorkletProcessor {
 	}
 
 	/**
+	 *
 	 * @param {WamTransportData} transportData
 	 */
 	_onTransport(transportData) {
@@ -290,6 +286,7 @@ export default class WamProcessor extends AudioWorkletProcessor {
 	}
 
 	/**
+	 *
 	 * @param {WamMidiData} midiData
 	 */
 	_onMidi(midiData) {
@@ -299,7 +296,8 @@ export default class WamProcessor extends AudioWorkletProcessor {
 	}
 
 	/**
-	 * @param {WamBinaryData} sysexData
+	 *
+	 * @param {WamSysexData} sysexData
 	 */
 	_onSysex(sysexData) {
 		// Override for custom sysex handling
@@ -308,6 +306,7 @@ export default class WamProcessor extends AudioWorkletProcessor {
 	}
 
 	/**
+	 *
 	 * @param {WamMidiData} mpeData
 	 */
 	_onMpe(mpeData) {
@@ -317,26 +316,13 @@ export default class WamProcessor extends AudioWorkletProcessor {
 	}
 
 	/**
-	 * @param {WamBinaryData} oscData
+	 *
+	 * @param {string} oscData
 	 */
 	_onOsc(oscData) {
 		// Override for custom osc handling
 		// eslint-disable-next-line no-console
 		console.error('_onOsc not implemented!');
-	}
-
-	/**
-	 * @param {any} state
-	 */
-	_setState(state) {
-		if (state.parameterValues) this._setParameterValues(state.parameterValues, false);
-	}
-
-	/**
-	 * @returns {any}
-	 */
-	_getState() {
-		return { parameterValues: this._getParameterValues(false) };
 	}
 
 	/**
@@ -352,7 +338,6 @@ export default class WamProcessor extends AudioWorkletProcessor {
 		let i = 0;
 		while (i < parameterIds.length) {
 			const id = parameterIds[i];
-			/** @type {WamParameter} */
 			const parameter = this._parameterState[id];
 			parameterValues[id] = {
 				id,
@@ -383,7 +368,6 @@ export default class WamProcessor extends AudioWorkletProcessor {
 	 */
 	_setParameterValue(parameterUpdate, interpolate) {
 		const { id, value, normalized } = parameterUpdate;
-		/** @type {WamParameter} */
 		const parameter = this._parameterState[id];
 		if (!parameter) return;
 		if (!normalized) parameter.value = value;
@@ -427,7 +411,6 @@ export default class WamProcessor extends AudioWorkletProcessor {
 				else eventsBySampleIndex[sampleIndex] = [event];
 				// notify main thread
 				if (id) this.port.postMessage({ id, response });
-				else if (this._sabReady) this._eventWriter.write(event);
 				else this.port.postMessage({ event });
 				this._eventQueue.shift();
 				i = -1;
@@ -457,12 +440,12 @@ export default class WamProcessor extends AudioWorkletProcessor {
 	/** @param {WamEvent} event */
 	_processEvent(event) {
 		switch (event.type) {
-		case 'wam-automation': this._setParameterValue(event.data, true); break;
-		case 'wam-transport': this._onTransport(event.data); break;
-		case 'wam-midi': this._onMidi(event.data); break;
-		case 'wam-sysex': this._onSysex(event.data); break;
-		case 'wam-mpe': this._onMpe(event.data); break;
-		case 'wam-osc': this._onOsc(event.data); break;
+		case 'automation': this._setParameterValue(event.data, true); break;
+		case 'transport': this._onTransport(event.data); break;
+		case 'midi': this._onMidi(event.data); break;
+		case 'sysex': this._onSysex(event.data); break;
+		case 'mpe': this._onMpe(event.data); break;
+		case 'osc': this._onOsc(event.data); break;
 		default: break;
 		}
 	}
@@ -484,8 +467,6 @@ export default class WamProcessor extends AudioWorkletProcessor {
 	 */
 	process(inputs, outputs, parameters) {
 		if (this._destroyed) return false;
-		if (this._sabReady) this.scheduleEvents(...this._eventReader.read());
-
 		const processingSlices = this._getProcessingSlices();
 		let i = 0;
 		while (i < processingSlices.length) {

@@ -204,8 +204,7 @@ const processor = (processorId, paramsConfig) => {
 		 */
 		scheduleEvents(...events) {
 			this.eventQueue.push(...events);
-			const { currentTime } = audioWorkletGlobalScope;
-			this.eventQueue.sort((a, b) => (a.time || currentTime) - (b.time || currentTime));
+			this.eventQueue.sort((a, b) => a.time - b.time);
 		}
 
 		get downstream() {
@@ -246,6 +245,7 @@ const processor = (processorId, paramsConfig) => {
 		 * @param {Float32Array[][]} inputs
 		 * @param {Float32Array[][]} outputs
 		 * @param {Record<string, Float32Array>} parameters
+		 * @memberof ParamMgrProcessor
 		 */
 		process(inputs, outputs, parameters) {
 			if (this.destroyed) return false;
@@ -322,6 +322,39 @@ const processor = (processorId, paramsConfig) => {
 			audioWorkletGlobalScope.webAudioModules.destroy(this);
 			this.destroyed = true;
 			this.port.close();
+		}
+
+		/**
+		 * @param {boolean} playing
+		 * @param {number} bpm
+		 * @param {number} beatsPerBar
+		 * @param {number} [initialBarPosition]
+		 * @param {number} [timestamp]
+		 */
+		setTransportAtTime(playing, bpm, beatsPerBar, initialBarPosition, timestamp) {
+			audioWorkletGlobalScope.webAudioModules.setTransportAtTime(playing, bpm, beatsPerBar, initialBarPosition, timestamp)
+		}
+
+		/**
+		 * 
+		 * @param {number} startBpm 
+		 * @param {number} startTime 
+		 * @param {number} endBpm 
+		 * @param {number} endTime 
+		 * @param {number} beatsPerBar
+		 * @param {number} [initialBarPosition]
+		 */
+		 automateTempo(startBpm, startTime, endBpm, endTime, beatsPerBar, initialBarPosition) {
+			audioWorkletGlobalScope.webAudioModules.automateTempo(startBpm, startTime, endBpm, endTime, beatsPerBar, initialBarPosition)
+		 }
+
+		 /**
+		 * @param {number} from
+		 * @param {number} to
+		 */
+		// eslint-disable-next-line
+		getTransportEvents(from, to) { 
+			return audioWorkletGlobalScope.webAudioModules.getTransportEvents(from, to)
 		}
 	}
 	try {

@@ -10,7 +10,6 @@ import MgrAudioParam from './MgrAudioParam.js';
 /** @typedef {import('../api/types').WamNode} WamNode */
 /** @typedef {import('../api/types').WamParameterDataMap} WamParameterValueMap */
 /** @typedef {import('../api/types').WamEvent} WamEvent */
-/** @typedef {import('../api/types').WamAutomationEvent} WamAutomationEvent */
 /** @typedef {import('./types').ParamMgrOptions} ParamMgrOptions */
 /** @typedef {import('./types').ParamMgrCallFromProcessor} ParamMgrCallFromProcessor */
 /** @typedef {import('./types').ParamMgrCallToProcessor} ParamMgrCallToProcessor */
@@ -126,7 +125,6 @@ export default class ParamMgrNode extends AudioWorkletNode {
 			if (config instanceof AudioParam) {
 				try {
 					config.automationRate = 'a-rate';
-				// eslint-disable-next-line no-empty
 				} catch {
 				} finally {
 					config.value = Math.max(0, config.minValue);
@@ -167,11 +165,8 @@ export default class ParamMgrNode extends AudioWorkletNode {
 		return this.call('getParameterValues', normalized, ...parameterIdQuery);
 	}
 
-	/**
-	 * @param {WamAutomationEvent} event
-	 */
 	scheduleAutomation(event) {
-		const time = event.time || this.context.currentTime;
+		const { time } = event;
 		const { id, normalized, value } = event.data;
 		const audioParam = this.getParam(id);
 		if (!audioParam) return;
@@ -190,7 +185,7 @@ export default class ParamMgrNode extends AudioWorkletNode {
 	 */
 	scheduleEvents(...events) {
 		events.forEach((event) => {
-			if (event.type === 'wam-automation') {
+			if (event.type === 'automation') {
 				this.scheduleAutomation(event);
 			}
 		});
@@ -212,7 +207,7 @@ export default class ParamMgrNode extends AudioWorkletNode {
 	 * @param {WamEvent} event
 	 */
 	dispatchWamEvent(event) {
-		if (event.type === 'wam-automation') {
+		if (event.type === 'automation') {
 			this.scheduleAutomation(event);
 		} else {
 			this.dispatchEvent(new CustomEvent(event.type, { detail: event }));
@@ -232,12 +227,17 @@ export default class ParamMgrNode extends AudioWorkletNode {
 		});
 	}
 
-	async getState() {
-		return this.getParamsValues();
+	getState() {
+		return new Promise((resolve) => {
+			resolve(this.getParamsValues());
+		});
 	}
 
-	async setState(state) {
-		this.setParamsValues(state);
+	setState(state) {
+		return new Promise((resolve) => {
+			this.setParamsValues(state);
+			resolve();
+		});
 	}
 
 	convertTimeToFrame(time) {
@@ -499,4 +499,15 @@ export default class ParamMgrNode extends AudioWorkletNode {
 		await this.call('destroy');
 		this.port.close();
 	}
+
+       /**
+        * @param {boolean} playing
+        * @param {number} bpm
+        * @param {number} beatsPerBar
+        * @param {number} [initialBarPosition]
+        * @param {number} [timestamp]
+        */
+       async setTransportAtTime(playing, bpm, beatsPerBar, initialBarPosition, timestamp) {
+               await this.call('setTransportAtTime', playing, bpm, beatsPerBar, initialBarPosition, timestamp)
+       }
 }

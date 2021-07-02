@@ -1,3 +1,10 @@
-import { WamParameter } from './api/types';
+/* eslint-disable max-classes-per-file */
+import { WamParameter, WamParameterInfo } from './api/types';
 
-export default WamParameter;
+declare class WamParameterSab extends WamParameter {
+	constructor(info: WamParameterInfo, array: Float32Array, index: number);
+}
+
+declare class WamParameterNoSab extends WamParameter {}
+
+export { WamParameterNoSab, WamParameterSab };
