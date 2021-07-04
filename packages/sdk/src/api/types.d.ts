@@ -267,6 +267,19 @@ export const AudioWorkletProcessor: {
     new (options: AudioWorkletNodeOptions): AudioWorkletProcessor;
 };
 
+export type WamTempoPosition = {
+    timestamp: number
+    bpm: number
+}
+
+export type WamTransportEvent2 = {
+    playing: boolean
+    beatsPerBar: number
+    initialBarPosition: number
+    start: WamTempoPosition
+    end?: WamTempoPosition
+}
+
 export interface WamEnv {
     /** Stores a graph of WamProcessors connected with `connectEvents` for each output of processors */
     readonly eventGraph: Map<WamProcessor, Set<WamProcessor>[]>;
@@ -280,6 +293,11 @@ export interface WamEnv {
     disconnectEvents(from: WamProcessor, to?: WamProcessor, output?: number): void;
     /** The method should be called when a processor instance is destroyed */
     destroy(wam: WamProcessor): void;
+
+    setTransportAtTime(playing: boolean, bpm: number, beatsPerBar?: number, barPosition?: number, time?: number): void;
+    automateTempo(startBpm: number, startTime: number, endBpm: number, endTime: number, beatsPerBar: number, initialBarPosition?: number): void
+    getTransportEvents(from?: number, to?: number): WamTransportEvent2[];
+    getBarPosition(timestamp: number): number;
 }
 export const WamEnv: {
     prototype: WamEnv;
