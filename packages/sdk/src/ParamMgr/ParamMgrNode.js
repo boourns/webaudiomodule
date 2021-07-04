@@ -499,4 +499,15 @@ export default class ParamMgrNode extends AudioWorkletNode {
 		await this.call('destroy');
 		this.port.close();
 	}
+
+	/**
+	* @param {boolean} playing
+	* @param {number} bpm
+	* @param {number} beatsPerBar
+	* @param {number} [initialBarPosition]
+	* @param {number} [timestamp]
+	*/
+	async setTransportAtTime(playing, bpm, beatsPerBar, initialBarPosition, timestamp) {
+			await this.call('setTransportAtTime', playing, bpm, beatsPerBar, initialBarPosition, timestamp)
+	}
 }
